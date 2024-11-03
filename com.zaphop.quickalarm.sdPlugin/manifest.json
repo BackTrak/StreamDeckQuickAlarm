@@ -1,0 +1,43 @@
+{
+	"Name": "Quick Alarm",
+	"Version": "0.1.0.0",
+	"Author": "Nick Pirocanac",
+	"Actions": [
+		{
+			"Name": "Counter",
+			"UUID": "com.zaphop.quickalarm.increment",
+			"Icon": "imgs/actions/counter/icon",
+			"Tooltip": "Displays a count, which increments by one on press.",
+			"PropertyInspectorPath": "ui/property-inspector.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/counter/key",
+					"TitleAlignment": "middle"
+				}
+			]
+		}
+	],
+	"Category": "Quick Alarm",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Description": "The fastest way to set alarms from a StreamDeck!",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 2,
+	"Software": {
+		"MinimumVersion": "6.4"
+	},
+	"OS": [
+		{
+			"Platform": "windows",
+			"MinimumVersion": "7"
+		}
+	],
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "enabled"
+	},
+	"UUID": "com.zaphop.quickalarm"
+}
