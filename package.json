@@ -18,6 +18,8 @@
     },
     "dependencies": {
         "@elgato/streamdeck": "^1.0.0",
-        "jimp": "^1.6.0"
+        "@types/ws": "^8.5.13",
+        "jimp": "^1.6.0",
+        "ws": "^8.18.0"
     }
 }

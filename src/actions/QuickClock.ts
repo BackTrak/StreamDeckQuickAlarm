@@ -1,18 +1,68 @@
-import streamDeck, { action, DidReceiveSettingsEvent, KeyAction, KeyDownEvent, PropertyInspector, SingletonAction, TitleOptions, WillAppearEvent } from "@elgato/streamdeck";
+import streamDeck, { Action, action, DialAction, DidReceiveSettingsEvent, KeyAction, KeyDownEvent, PropertyInspector, SingletonAction, TitleOptions, WillAppearEvent } from "@elgato/streamdeck";
 import { ChildProcess, exec, spawn } from "child_process";
-import { Jimp, loadFont, HorizontalAlign, VerticalAlign, JimpMime } from "jimp";
+import { Jimp, loadFont, HorizontalAlign, VerticalAlign, JimpMime, BmpColor } from "jimp";
 import { SANS_10_BLACK, SANS_16_BLACK, SANS_16_WHITE } from "jimp/fonts";
+import WebSocket from 'ws';
 
+type SetImageDelegate = (image: string) => Promise<void>;
+type SetSettings = (settings: Settings) => Promise<void>;
+type Color = { r: number, g: number, b: number };
 
+type RegisterEvent = {
+	event: string; // -registerEvent parameter
+	uuid: string; // -pluginUUID parameter
+};
 
 /**
  * An example action class that displays a count that increments by one each time the button is pressed.
  */
 @action({ UUID: "com.zaphop.quickalarm.set" })
 export class QuickClock extends SingletonAction<Settings> {
+	_clockColorBase: Color = { r: 0x4c, g: 0x4c, b: 0x4c };
+	_clockColorFlash: Color = { r: 0xde, g: 0xe2, b: 0x00 };
+
 	_mediaPlayer: ChildProcess | undefined = undefined;
 	_timer: NodeJS.Timeout | undefined = undefined;
-	_settings : Settings | undefined = undefined;
+	_settings: Settings | undefined = undefined;
+	_animationTimer: NodeJS.Timeout | undefined = undefined;
+
+	_clockColor: Color = { r: 0x2c, g: 0x2c, b: 0x2c };
+
+	//_setImage: SetImageDelegate | undefined = undefined;
+	_action: DialAction | KeyAction | undefined = undefined;
+
+	_animationPosition = 0;
+	readonly _frameCount = 25;
+
+
+	// A plugin can't also hit the websocket directly :(
+
+	// _port: number;
+	// _pluginUUID: string;
+	// _registerEvent: string;
+
+	// _ws: WebSocket;
+
+	// constructor(port: number, pluginUUID: string, registerEvent: string) {
+	// 	super();
+
+	// 	this._port = port;
+	// 	this._pluginUUID = pluginUUID;
+	// 	this._registerEvent = registerEvent;
+
+	// 	const event: RegisterEvent = {event: registerEvent, uuid: pluginUUID};
+
+	// 	this._ws = new WebSocket("ws://localhost:" + port.toString())
+	// 	this._ws.on('open', () => {
+	// 		streamDeck.logger.info('Connected to WebSocket server');
+	// 		streamDeck.logger.info('sending: ' + JSON.stringify(event));
+	// 		this._ws.send(JSON.stringify(event));
+	// 	  });
+
+	// 	  this._ws.on('message', (data) => {
+	// 		streamDeck.logger.info(`Received from server: ${data}`);
+	// 	  });
+	// }
 
 	/**
 	 * The {@link SingletonAction.onWillAppear} event is useful for setting the visual representation of an action when it becomes visible. This could be due to the Stream Deck first
@@ -20,15 +70,20 @@ export class QuickClock extends SingletonAction<Settings> {
 	 * we're setting the title to the "count" that is incremented in {@link IncrementCounter.onKeyDown}.
 	 */
 	override async onWillAppear(ev: WillAppearEvent<Settings>): Promise<void> {
-		//return ev.action.setTitle(`${ev.payload.settings.count ?? 0}`);
+		// Capture the action so that we can use it to set the button's image from the animation timer.
+		this._action = ev.action;
+
+		streamDeck.logger.info(JSON.stringify(ev));
 
 		this._settings = ev.payload.settings;
 
 		if (this._timer === undefined)
 			this._timer = setInterval(() => { this.checkTimer(); }, 1000);
 
-		await this.updateTimeDisplay(ev);
+		if (this._animationTimer === undefined)
+			this._animationTimer = setInterval(async () => { await this.animateClockAsync(); }, 30);
 
+		await this.updateTimeDisplay();
 	}
 
 	override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<Settings>): Promise<void> {
@@ -40,7 +95,7 @@ export class QuickClock extends SingletonAction<Settings> {
 
 		await ev.action.setSettings(this._settings);
 
-		await this.updateTimeDisplay(ev);
+		await this.updateTimeDisplay();
 	}
 
 	/**
@@ -53,16 +108,21 @@ export class QuickClock extends SingletonAction<Settings> {
 		this._settings = ev.payload.settings;
 
 		// If the player is playing, then reset everything.
-		if(this._mediaPlayer !== undefined)
-		{
+		if (this._mediaPlayer !== undefined) {
 			this._settings.alarmOn = false;
+
+			// Add 24 hours to the trigger time.
+			let triggerTime = new Date(this._settings.alarmTriggerTime);
+			triggerTime.setTime(triggerTime.getTime() + 60 * 60 * 24 * 1000);
+			this._settings.alarmTriggerTime = triggerTime.getTime();
+
 			await ev.action.setSettings(this._settings);
 
 			exec(`taskkill /PID ${this._mediaPlayer.pid} /F`);
 			this._mediaPlayer = undefined;
 
-			await this.updateTimeDisplay(ev);
-			
+			await this.updateTimeDisplay();
+
 			return;
 		}
 
@@ -70,25 +130,43 @@ export class QuickClock extends SingletonAction<Settings> {
 			this._settings.alarmOn = false;
 
 		if (this._settings.alarmOn == true) {
-			let currentAlarm = new Date(this._settings.alarmTriggerTime);
-			currentAlarm.setMinutes(currentAlarm.getMinutes() + parseInt(this._settings.increment.toString()));
+			// Because the dropdown stores the value as string, we need to hack it into a number.
+			this._settings.minute += parseInt(this._settings.increment.toString());
 
-			this._settings.alarmTriggerTime = currentAlarm.getTime();
-
-			if (currentAlarm.getHours() != this._settings.hour)
+			if (this._settings.minute >= 60) {
+				this._settings.minute = 0;
 				this._settings.alarmOn = false;
+			}
+			else {
+				let nextAlarm = new Date();
+				nextAlarm.setHours(this._settings.hour);
+				nextAlarm.setMinutes(this._settings.minute);
+				nextAlarm.setSeconds(0);
+				nextAlarm.setMilliseconds(0);
+
+				if (nextAlarm.getTime() < new Date().getTime())
+					nextAlarm.setTime(nextAlarm.getTime() + 60 * 60 * 24 * 1000);
+
+				streamDeck.logger.info("Updating alarm: " + nextAlarm);
+				this._settings.alarmTriggerTime = nextAlarm.getTime();
+			}
 		}
 		else {
 			this._settings.alarmOn = !this._settings.alarmOn;
+
+			if (this._settings.minute === undefined)
+				this._settings.minute = 0;
+
 			let nextAlarm = new Date();
 			nextAlarm.setHours(this._settings.hour);
-			nextAlarm.setMinutes(0);
+			nextAlarm.setMinutes(this._settings.minute);
 			nextAlarm.setSeconds(0);
 			nextAlarm.setMilliseconds(0);
 
 			if (nextAlarm.getTime() < new Date().getTime())
 				nextAlarm.setTime(nextAlarm.getTime() + 60 * 60 * 24 * 1000);
 
+			streamDeck.logger.info("Turning alarm on: " + nextAlarm);
 			this._settings.alarmTriggerTime = nextAlarm.getTime();
 		}
 
@@ -111,41 +189,58 @@ export class QuickClock extends SingletonAction<Settings> {
 		// 		});
 		// }
 
-		await this.updateTimeDisplay(ev);
+		await this.updateTimeDisplay();
 	}
 
-	checkTimer() : void {
-		if(this._settings?.alarmOn == true)
-		{
+	checkTimer(): void {
+		if (this._settings?.alarmOn == true) {
 			let triggerTime = new Date(this._settings.alarmTriggerTime);
 
-			if(triggerTime < new Date())
-			{
-				// Add 24 hours to the trigger time.
-				triggerTime.setTime(triggerTime.getTime() +  + 60 * 60 * 24 * 1000);
-				this._settings.alarmTriggerTime = triggerTime.getTime();
-
+			if (triggerTime < new Date() && this._mediaPlayer === undefined) {
 				this._mediaPlayer = spawn("powershell", ["-ExecutionPolicy", "Bypass", "-File", "sounds/PlaySound.ps1", this._settings.alarm],
-				{
-					shell: false
-				});
+					{
+						shell: false
+					});
 			}
 		}
 	}
 
-	async updateTimeDisplay(ev: WillAppearEvent<Settings> | DidReceiveSettingsEvent<Settings> | KeyDownEvent<Settings>): Promise<void> {
-		const { settings } = ev.payload;
-
-		let hour = ev.payload.settings.hour;
-		let minutes = "00";
-
-		if (settings.alarmOn == true) {
-			const triggerTime = new Date(settings.alarmTriggerTime);
-			hour = triggerTime.getHours();
-			minutes = triggerTime.getMinutes().toString();
-			if (minutes.length < 2)
-				minutes = "0" + minutes;
+	async animateClockAsync(): Promise<void> {
+		if (this._mediaPlayer === undefined) {
+			this._clockColor = this._clockColorBase;
+			this._animationPosition = 0;
 		}
+		else if (this._animationPosition % 5 == 0) {
+			if (this._clockColor == this._clockColorFlash)
+				this._clockColor = this._clockColorBase;
+			else
+				this._clockColor = this._clockColorFlash;
+
+			this._animationPosition = (this._animationPosition + 1) % this._frameCount;
+		}
+
+		await this.updateTimeDisplay();
+	}
+
+	// ev: WillAppearEvent<Settings> | DidReceiveSettingsEvent<Settings> | KeyDownEvent<Settings>
+	async updateTimeDisplay(): Promise<void> {
+		//const { settings } = ev.payload;
+
+
+		let hour = this._settings?.hour ?? 0;
+		let minutes = this._settings?.minute.toString() ?? "00";
+		let alarmOn = this._settings?.alarmOn ?? false;
+
+		// if (settings.alarmOn == true) {
+		// 	const triggerTime = new Date(settings.alarmTriggerTime);
+		// 	//hour = triggerTime.getHours();
+		// 	//minutes = triggerTime.getMinutes().toString();
+		// 	if (minutes.length < 2)
+		// 		minutes = "0" + minutes;
+		// }
+
+		if (minutes.length < 2)
+			minutes = "0" + minutes;
 
 		let ampm = "am";
 		if (hour > 11 && hour < 24)
@@ -154,19 +249,50 @@ export class QuickClock extends SingletonAction<Settings> {
 		if (hour > 12)
 			hour -= 12;
 
-		let image = await this.createTextImage(`${hour}:${minutes} ${ampm}`, ev.payload.settings.alarmOn);
+		let image = await this.createTextImage(`${hour}:${minutes} ${ampm}`, alarmOn);
 
-		await ev.action.setImage(image);
+
+		//await ev.action.setImage(image);
+		//streamDeck.ui.onSendToPlugin()
+		//await streamDeck.ui.current?.action.setImage(image);
+
+		// if(this._setImage !== undefined)
+		// 	await this._setImage(image);
+
+		// streamDeck.actions.forEach(value => {
+		// 	streamDeck.actions.getActionById(value.id)?.setImage(image);
+		// 	streamDeck.logger.info(value.id);
+		// })
+
+		this._action?.setImage(image);
 	}
 
+
 	// Function to create an image with text and return it as a base64 string
-	async createTextImage(text: string, alarmOn: boolean, width = 72, height = 72) {
+	async createTextImage(text: string, alarmOn: boolean, width = 72, height = 72): Promise<string> {
 		// Create a blank image
 		const image = new Jimp({ width: width, height: height, color: '#00000000' });
 
 		const background = await Jimp.read('imgs/quickclock/alarm-clock-key.png');
 
-		image.blit(background);
+		// https://github.com/jimp-dev/jimp/issues/537
+		background.color([{ apply: "xor", params: [this._clockColor] }]);
+
+		let offset = 0;
+
+		if (this._mediaPlayer !== undefined)
+			offset = Math.sin((360 * Math.PI / 180) / (this._frameCount + 1) * this._animationPosition);
+
+		background.scale(1 + (.1 * offset));
+		background.rotate(20 * offset,);
+
+		//streamDeck.logger.info(`${this._animationPosition}: ${background.width}, ${background.height}`);
+
+		//background.displace()
+
+		//image.blit(background);
+		image.blit({ src: background, x: (background.width - 72) / -2, y: (background.height - 72) / -2 });
+		//image.displace(background, {offset: 10});
 
 
 
@@ -251,6 +377,7 @@ export class QuickClock extends SingletonAction<Settings> {
  */
 type Settings = {
 	hour: number;
+	minute: number;
 	increment: number;
 	alarm: string; // The audio file to play
 	alarmOn: boolean;
