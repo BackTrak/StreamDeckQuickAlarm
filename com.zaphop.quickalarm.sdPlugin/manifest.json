@@ -1,6 +1,6 @@
 {
 	"Name": "Quick Alarm",
-	"Version": "0.1.0.0",
+	"Version": "1.0.0.0",
 	"Author": "Nick Pirocanac",
 	"Actions": [
 		{
@@ -14,17 +14,17 @@
 			],
 			"States": [
 				{
-					"Image": "imgs/quickclock/alarm-clock-key",
+					"Image": "imgs/quickalarm/alarm-clock-key",
 					"TitleAlignment": "middle"
 				}
 			]
 		}
 	],
 	"Category": "Quick Alarm",
-	"CategoryIcon": "imgs/quickclock/alarm-clock",
+	"CategoryIcon": "imgs/quickalarm/alarm-clock",
 	"CodePath": "bin/plugin.js",
 	"Description": "The fastest way to set alarms from a StreamDeck!",
-	"Icon": "imgs/quickclock/marketplace",
+	"Icon": "imgs/quickalarm/marketplace",
 	"SDKVersion": 2,
 	"Software": {
 		"MinimumVersion": "6.4"

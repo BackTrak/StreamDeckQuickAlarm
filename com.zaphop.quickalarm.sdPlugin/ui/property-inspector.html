@@ -2,23 +2,15 @@
 <html>
 
 <head lang="en">
-    <title>Increment Counter Settings</title>
+    <title>Quick Alarm Settings</title>
     <meta charset="utf-8" />
     <script src="https://sdpi-components.dev/releases/v3/sdpi-components.js"></script>
-    <script
-        src="https://code.jquery.com/jquery-3.7.1.min.js"
-        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
-        crossorigin="anonymous">
-    </script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous">
+        </script>
 </head>
 
 <body>
-    <!--
-        Learn more about property inspector components at https://sdpi-components.dev/docs/components
-    -->
-    <sdpi-item label="Increment By">
-        <sdpi-range setting="incrementBy" min="1" max="5" step="1" default="1" showlabels></sdpi-range>
-    </sdpi-item>
     <sdpi-item label="Hour">
         <sdpi-select setting="hour" placeholder="Select Hour" id="hour">
         </sdpi-select>
@@ -38,28 +30,34 @@
 
 <script>
 
-const streamDeckClient = SDPIComponents.streamDeckClient;
+    const streamDeckClient = SDPIComponents.streamDeckClient;
 
-SDPIComponents.streamDeckClient.sendToPropertyInspector.subscribe(console.log);
+    //SDPIComponents.streamDeckClient.sendToPropertyInspector.subscribe(console.log);
 
-$(document).ready(function() {
-    const $hourSelect = $('#hour'); // Select the element with id 'hour'
+    SDPIComponents.streamDeckClient.didReceiveSettings.subscribe(onSettingsReceived);
     
-    // Clear any existing options, if needed
-    $hourSelect.empty();
+    $(document).ready(function () {
+        const $hourSelect = $('#hour'); // Select the element with id 'hour'
 
-    // Loop through numbers 1 to 12 and add them as options
-    for (let i = 1; i <= 24; i++) {
-        const isSelected = (i === 9) ? 'selected' : '';
-        const amOrPm = i > 11 && i < 24 ? "PM" : "AM";
-        const displayValue = i > 12 ? i - 12 : i;
+        // Clear any existing options, if needed
+        $hourSelect.empty();
 
-        $hourSelect.append(`<option value="${i}" ${isSelected}>${displayValue} ${amOrPm}</option>`);
+        // Loop through numbers 1 to 12 and add them as options
+        for (let i = 1; i <= 24; i++) {
+            const isSelected = (i === 9) ? 'selected' : '';
+            const amOrPm = i > 11 && i < 24 ? "PM" : "AM";
+            const displayValue = i > 12 ? i - 12 : i;
+
+            $hourSelect.append(`<option value="${i}" ${isSelected}>${displayValue} ${amOrPm}</option>`);
+        }
+    });
+
+    function onSettingsReceived(ev) {
+        // Pound refresh until the defaults are set. 
+        if (ev.payload.settings.defaultsSet === undefined || ev.payload.settings.defaultsSet === false)
+            window.location.reload();
     }
 
-    // var audio = new Audio('c:/Users/Nick/Downloads/ding-126626.mp3');
-    // audio.play();
-});
 </script>
 
 </html>
