@@ -22,8 +22,6 @@ export class Instance {
     private _mediaPlayer: ChildProcess | undefined = undefined;
     private  _currentFrame = 0; // The current animation frame.
     private  _clockColor: Color = this._clockColorBase;
-
-    private _currentImage: string | undefined;
 	
     get ActionId() : string {
         return this._action.id;
@@ -137,23 +135,6 @@ export class Instance {
      * @returns 
      */
 	async createTextImage(text: string, alarmOn: boolean, width = 72, height = 72): Promise<string | undefined> {
-
-        
-        // if(this.IsPlaying == false)
-        // {
-        //     const currentImage = `imgs/cache/${text.replace(':', '_').replace(" ", "_")}_${alarmOn ? "set" : "off"}_notplaying_.b64`;
-
-        //     if(this._currentImage === currentImage)
-        //         return undefined;
-
-        //     this._currentImage = currentImage;
-
-        //     streamDeck.logger.info(currentImage);
-
-        //     var buffer = await fs.readFile(currentImage);
-        //     return buffer.toString();
-        // }
-
 		// Create a blank image
 		const image = new Jimp({ width: width, height: height, color: '#00000000' });
 
