@@ -142,7 +142,12 @@ export class QuickClock extends SingletonAction<Settings> {
 			}
 			else {
 				let nextAlarm = new Date();
-				nextAlarm.setHours(parseInt(currentInstance.Settings.hour));
+				let hour = parseInt(currentInstance.Settings.hour);
+				
+				if (hour > 23)
+					hour = 0;
+
+				nextAlarm.setHours(hour);
 				nextAlarm.setMinutes(currentInstance.Settings.minute);
 				nextAlarm.setSeconds(0);
 				nextAlarm.setMilliseconds(0);

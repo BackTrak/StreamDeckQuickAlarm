@@ -2,7 +2,8 @@
     "scripts": {
         "build": "rollup -c",
         "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.zaphop.quickalarm\"",
-        "pack": "streamdeck pack -o dist com.zaphop.quickalarm.sdPlugin"
+        "pack": "streamdeck pack -f -o dist com.zaphop.quickalarm.sdPlugin",
+        "val": "streamdeck validate com.zaphop.quickalarm.sdPlugin"
     },
     "type": "module",
     "devDependencies": {
