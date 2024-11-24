@@ -6,4 +6,5 @@ type Settings = {
 	alarmOn: boolean;
 	alarmTriggerTime: number;
     defaultsSet: boolean; // Keep the PI reloading until the defaults are applied.
+	militaryTime: boolean;
 };

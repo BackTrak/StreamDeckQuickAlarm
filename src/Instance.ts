@@ -6,59 +6,66 @@ import { promises as fs } from "fs";
 type Color = { r: number, g: number, b: number };
 
 export class Instance {
-    private readonly _action: KeyAction | DialAction;
-    public Settings: Settings;
+	private readonly _action: KeyAction | DialAction;
+	public Settings: Settings;
 
-    private readonly _clockColorBase: Color = { r: 0x4c, g: 0x4c, b: 0x4c };
+	private readonly _clockColorBase: Color = { r: 0x4c, g: 0x4c, b: 0x4c };
 	private readonly _clockColorFlash: Color = { r: 0xde, g: 0xe2, b: 0x00 };
 
-    private readonly _timeColorUnset: Color = { r: 0xbb, g: 0xbb, b: 0xbb };
-    private readonly _timeColorSet: Color = { r: 0x00, g: 0xff, b: 0x00 };
-    private readonly _timeColorAlarm: Color = { r: 0x00, g: 0xf9, b: 0xff };
-    private readonly _frameCount = 25; // The number of frames per second to run the animation.
+	private readonly _timeColorUnset: Color = { r: 0xbb, g: 0xbb, b: 0xbb };
+	private readonly _timeColorSet: Color = { r: 0x00, g: 0xff, b: 0x00 };
+	private readonly _timeColorAlarm: Color = { r: 0x00, g: 0xf9, b: 0xff };
+	private readonly _frameCount = 25; // The number of frames per second to run the animation.
 
-    private _timer: NodeJS.Timeout | undefined = undefined;
+	private _timer: NodeJS.Timeout | undefined = undefined;
 	private _animationTimer: NodeJS.Timeout | undefined = undefined;
-    private _mediaPlayer: ChildProcess | undefined = undefined;
-    private  _currentFrame = 0; // The current animation frame.
-    private  _clockColor: Color = this._clockColorBase;
-	
-    get ActionId() : string {
-        return this._action.id;
-    }
+	private _mediaPlayer: ChildProcess | undefined = undefined;
+	private _currentFrame = 0; // The current animation frame.
+	private _clockColor: Color = this._clockColorBase;
 
-    get IsPlaying() : boolean {
-        return this._mediaPlayer !== undefined;
-    }
+	get ActionId(): string {
+		return this._action.id;
+	}
 
-    constructor(action: KeyAction | DialAction, settings: Settings) {
-        this._action = action;
-        this.Settings = settings;
+	get IsPlaying(): boolean {
+		return this._mediaPlayer !== undefined;
+	}
 
-        if (this._timer === undefined)
+	constructor(action: KeyAction | DialAction, settings: Settings) {
+		this._action = action;
+		this.Settings = settings;
+
+		if (this._timer === undefined)
 			this._timer = setInterval(() => { this.checkTimer(); }, 1000);
 
 		if (this._animationTimer === undefined)
 			this._animationTimer = setInterval(async () => { await this.animateClockAsync(); }, 30);
-    }
+	}
 
-    async stopPlaying(): Promise<void> {
-        if(this._mediaPlayer !== undefined) {
-            // I'm hoping this actually works on a mac.
-            if(process.platform === 'darwin') {
-                this._mediaPlayer.kill();
-            }
-            else {
-                exec(`taskkill /PID ${this._mediaPlayer.pid} /F`);
-            }
+	async stopPlaying(): Promise<void> {
+		if (this._mediaPlayer !== undefined) {
+			// TODO: Remove after 1/1/2025
+			// I'm hoping this actually works on a mac.
+			// if (process.platform === 'darwin') {
+			// 	this._mediaPlayer.kill();
+			// }
+			// else {
+			// 	//exec(`taskkill /PID ${this._mediaPlayer.pid} /F`);
+			// 	this._mediaPlayer.kill();
+			// }
 
-            this._mediaPlayer = undefined;
-        }
+			this._mediaPlayer.kill();
 
-        await this.updateTimeDisplay();
-    }
+			this._mediaPlayer = undefined;
+		}
 
-    checkTimer(): void {
+		// Reset the clock color so it doesn't get stuck on the flash color.
+		this._clockColor = this._clockColorBase;
+
+		await this.updateTimeDisplay();
+	}
+
+	checkTimer(): void {
 		if (this.Settings?.alarmOn == true) {
 			let triggerTime = new Date(this.Settings.alarmTriggerTime);
 			let minDateWindow = new Date();
@@ -67,15 +74,13 @@ export class Instance {
 			// If the trigger time is in the past AND the trigger time is not older than 1 minute, then sound the alarm. 
 			// This way the alarms do not all fire if the user has the computer off. 
 			if (triggerTime < new Date() && triggerTime > minDateWindow && this._mediaPlayer === undefined) {
-				if(process.platform === 'darwin')
-				{
+				if (process.platform === 'darwin') {
 					this._mediaPlayer = spawn("afplay ", [this.Settings.alarm, "-v", "2"],
 						{
 							shell: false
 						});
 				}
-				else
-				{
+				else {
 					this._mediaPlayer = spawn("powershell", ["-ExecutionPolicy", "Bypass", "-File", "sounds/PlaySound.ps1", this.Settings.alarm],
 						{
 							shell: false
@@ -85,9 +90,9 @@ export class Instance {
 		}
 	}
 
-    async animateClockAsync(): Promise<void> {
-        if(this.IsPlaying == false)
-            return;
+	async animateClockAsync(): Promise<void> {
+		if (this.IsPlaying == false)
+			return;
 
 		if (this._mediaPlayer === undefined) {
 			this._clockColor = this._clockColorBase;
@@ -97,11 +102,11 @@ export class Instance {
 			if (this._clockColor == this._clockColorFlash)
 				this._clockColor = this._clockColorBase;
 			else
-				this._clockColor = this._clockColorFlash;	
+				this._clockColor = this._clockColorFlash;
 		}
 
 		this._currentFrame = (this._currentFrame + 1) % this._frameCount;
-		
+
 		await this.updateTimeDisplay();
 	}
 
@@ -113,27 +118,34 @@ export class Instance {
 		if (minutes.length < 2)
 			minutes = "0" + minutes;
 
-		let ampm = "am";
-		if (hour > 11 && hour < 24)
-			ampm = "pm";
+		let image: string | undefined;
 
-		if (hour > 12)
-			hour -= 12;
+		if (this.Settings.militaryTime == false || this.Settings.militaryTime === undefined) {
+			let ampm = "am";
+			if (hour > 11 && hour < 24)
+				ampm = "pm";
 
-		let image = await this.createTextImage(`${hour}:${minutes} ${ampm}`, alarmOn);
+			if (hour > 12)
+				hour -= 12;
 
-        if(image !== undefined)
-		    this._action?.setImage(image);
+			image = await this.createTextImage(`${hour}:${minutes} ${ampm}`, alarmOn);
+		}
+		else {
+			image = await this.createTextImage(`${hour}:${minutes}`, alarmOn);
+		}
+
+		if (image !== undefined)
+			this._action?.setImage(image);
 	}
 
-    /**
-     * Function to create an image with text and return it as a base64 string
-     * @param text 
-     * @param alarmOn 
-     * @param width 
-     * @param height 
-     * @returns 
-     */
+	/**
+	 * Function to create an image with text and return it as a base64 string
+	 * @param text 
+	 * @param alarmOn 
+	 * @param width 
+	 * @param height 
+	 * @returns 
+	 */
 	async createTextImage(text: string, alarmOn: boolean, width = 72, height = 72): Promise<string | undefined> {
 		// Create a blank image
 		const image = new Jimp({ width: width, height: height, color: '#00000000' });
@@ -209,12 +221,12 @@ export class Instance {
 		);
 
 		let fontColor = this._timeColorUnset;
-		
-        if (alarmOn == true)
+
+		if (alarmOn == true)
 			fontColor = this._timeColorSet;
 
-        if(this.IsPlaying == true)
-            fontColor = this._timeColorAlarm;
+		if (this.IsPlaying == true)
+			fontColor = this._timeColorAlarm;
 
 		// https://github.com/jimp-dev/jimp/issues/537 -- Source bitmap must be black!
 		fontImage.color([{ apply: 'xor', params: [fontColor] }]);

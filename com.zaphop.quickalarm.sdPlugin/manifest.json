@@ -2,6 +2,7 @@
 	"Name": "Quick Alarm",
 	"Version": "1.0.0.0",
 	"Author": "Nick Pirocanac",
+	"URL": "https://github.com/BackTrak/StreamDeckQuickAlarm",
 	"Actions": [
 		{
 			"Name": "QuickAlarm",
@@ -21,10 +22,10 @@
 		}
 	],
 	"Category": "Quick Alarm",
-	"CategoryIcon": "imgs/quickalarm/alarm-clock",
+	"CategoryIcon": "imgs/quickalarm/categoryIcon",
 	"CodePath": "bin/plugin.js",
 	"Description": "The fastest way to set alarms from a StreamDeck!",
-	"Icon": "imgs/quickalarm/marketplace",
+	"Icon": "imgs/quickalarm/zhgold288",
 	"SDKVersion": 2,
 	"Software": {
 		"MinimumVersion": "6.4"

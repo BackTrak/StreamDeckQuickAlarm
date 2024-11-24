@@ -36,10 +36,12 @@ export class QuickClock extends SingletonAction<Settings> {
 		// Update the settings on the instance
 		currentInstance.Settings = ev.payload.settings;
 
+		streamDeck.logger.info(import.meta.dirname);
+
 		streamDeck.logger.info(JSON.stringify(ev));
 
 		
-		if(currentInstance.Settings.defaultsSet === undefined ||  currentInstance.Settings.defaultsSet === false) {
+		if(currentInstance.Settings.defaultsSet === undefined || currentInstance.Settings.defaultsSet === false) {
 			const globalSettings = await streamDeck.settings.getGlobalSettings<Settings>();
 
 			streamDeck.logger.info(JSON.stringify(globalSettings));
@@ -47,6 +49,9 @@ export class QuickClock extends SingletonAction<Settings> {
 			if(globalSettings?.alarm !== undefined) {
 				currentInstance.Settings.alarm = globalSettings?.alarm;
 				streamDeck.logger.info("updated alarm to default: " + globalSettings?.alarm);
+			}
+			else {
+				currentInstance.Settings.alarm = import.meta.dirname + "/../alarms/TimTaj_Go_Motivate_Yourself.mp3"
 			}
 
 			if(globalSettings?.hour !== undefined) {
@@ -64,6 +69,13 @@ export class QuickClock extends SingletonAction<Settings> {
 			if(globalSettings?.increment !== undefined) {
 				currentInstance.Settings.increment = globalSettings?.increment;
 				streamDeck.logger.info("updated increment to default: " + currentInstance.Settings.increment );
+			}
+
+			if (globalSettings?.militaryTime !== undefined) {
+				currentInstance.Settings.militaryTime = globalSettings?.militaryTime;
+			}
+			else {
+				currentInstance.Settings.militaryTime = false;
 			}
 
 			currentInstance.Settings.defaultsSet = true;
