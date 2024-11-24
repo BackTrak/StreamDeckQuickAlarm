@@ -13,7 +13,7 @@ Quickly set a reminder alarm from your stream deck.
 * https://www.svgrepo.com/svg/532090/alarm-exclamation
 
 #### Default Alarm MP3
-Go Motivate Yourself by TimTaj
-License: (CC BY-NC-ND)
-Source: https://freemusicarchive.org/music/timtaj/great-aspirations/go-motivate-yourself/
+* Go Motivate Yourself by TimTaj
+* License: (CC BY-NC-ND)
+* Source: https://freemusicarchive.org/music/timtaj/great-aspirations/go-motivate-yourself/
 
