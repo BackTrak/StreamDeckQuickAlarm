@@ -2,7 +2,7 @@
 
 Quickly set a reminder alarm from your stream deck.
 
-![An image of the property inspector and UI of a Stream Deck running the Quick Alarm plugin](https://github.com/BackTrak/StreamDeckQuickAlarm/blob/main/imgs/previews/Preview.png?raw=true)
+![An image of the property inspector and UI of a Stream Deck running the Quick Alarm plugin](https://github.com/BackTrak/StreamDeckQuickAlarm/blob/main/com.zaphop.quickalarm.sdPlugin/previews/Preview.png?raw=true)
 
 ### Contributors
 
